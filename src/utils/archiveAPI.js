@@ -7,6 +7,13 @@ const METADATA_ENDPOINT = `${ARCHIVE_BASE}/metadata`;
 /**
  * Archive.org API Utility Functions
  * 
+ * ✅ ENHANCEMENTS:
+ * - Axios interceptors for automatic retry on failure
+ * - Enhanced rate limiting (Internet Archive: 15 req/min max)
+ * - Structured error handling with custom error classes
+ * - Request/response logging for debugging
+ * - Response data validation
+ * 
  * LEGAL COMPLIANCE:
  * - All queries filter for public domain content only
  * - Includes rights verification warnings
@@ -14,9 +21,199 @@ const METADATA_ENDPOINT = `${ARCHIVE_BASE}/metadata`;
  * 
  * SEO OPTIMIZATION:
  * - Rate limiting to prevent API throttling
- * - Efficient caching ready
+ * - Efficient caching ready (works with TanStack Query)
  * - Structured data extraction
  */
+
+// ============================================
+// ✅ CUSTOM ERROR CLASSES
+// ============================================
+
+class ArchiveAPIError extends Error {
+  constructor(message, statusCode, originalError) {
+    super(message);
+    this.name = 'ArchiveAPIError';
+    this.statusCode = statusCode;
+    this.originalError = originalError;
+  }
+}
+
+class RateLimitError extends ArchiveAPIError {
+  constructor(retryAfter) {
+    super('Rate limit exceeded. Please try again later.', 429);
+    this.name = 'RateLimitError';
+    this.retryAfter = retryAfter;
+  }
+}
+
+// ============================================
+// ✅ AXIOS INSTANCE WITH INTERCEPTORS
+// ============================================
+
+const archiveAPI = axios.create({
+  timeout: 15000, // 15 second timeout
+  headers: {
+    'Accept': 'application/json',
+  
+  }
+});
+
+// ✅ Request Interceptor - Add request logging
+archiveAPI.interceptors.request.use(
+  (config) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    }
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// ✅ Response Interceptor - Automatic retry logic
+archiveAPI.interceptors.response.use(
+  (response) => {
+    // Success response
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ API Response: ${response.config.url} - Status: ${response.status}`);
+    }
+    return response;
+  },
+  async (error) => {
+    const { config, response } = error;
+    
+    // Initialize retry count
+    config.retryCount = config.retryCount || 0;
+    
+    // Check if we should retry
+    const shouldRetry = 
+      config.retryCount < 3 && // Max 3 retries
+      (
+        !response || // Network error
+        response.status === 429 || // Rate limit
+        response.status >= 500 || // Server error
+        error.code === 'ECONNABORTED' // Timeout
+      );
+    
+    if (shouldRetry) {
+      config.retryCount += 1;
+      
+      // Calculate exponential backoff delay
+      const delay = Math.min(1000 * Math.pow(2, config.retryCount), 10000); // Max 10 seconds
+      
+      console.warn(
+        `⚠️ Retry attempt ${config.retryCount}/3 for ${config.url} after ${delay}ms`
+      );
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Retry the request
+      return archiveAPI(config);
+    }
+    
+    // Handle specific error cases
+    if (response?.status === 429) {
+      const retryAfter = response.headers['retry-after'] || 60;
+      throw new RateLimitError(retryAfter);
+    }
+    
+    if (response?.status >= 500) {
+      throw new ArchiveAPIError(
+        'Archive.org server error. Please try again later.',
+        response.status,
+        error
+      );
+    }
+    
+    if (error.code === 'ECONNABORTED') {
+      throw new ArchiveAPIError(
+        'Request timeout. Archive.org may be slow. Please try again.',
+        408,
+        error
+      );
+    }
+    
+    // Generic error
+    throw new ArchiveAPIError(
+      error.message || 'Failed to fetch data from Archive.org',
+      response?.status || 500,
+      error
+    );
+  }
+);
+
+// ============================================
+// ✅ ENHANCED RATE LIMITING
+// ============================================
+
+/**
+ * Rate Limiter Class
+ * Internet Archive limit: 15 requests per minute
+ * We use 12 req/min to be safe (200ms min interval)
+ */
+class RateLimiter {
+  constructor(maxRequests = 12, timeWindow = 60000) {
+    this.maxRequests = maxRequests;
+    this.timeWindow = timeWindow; // 60 seconds
+    this.requests = [];
+  }
+  
+  async waitForSlot() {
+    const now = Date.now();
+    
+    // Remove old requests outside time window
+    this.requests = this.requests.filter(time => now - time < this.timeWindow);
+    
+    // Check if we've hit the limit
+    if (this.requests.length >= this.maxRequests) {
+      const oldestRequest = this.requests[0];
+      const waitTime = this.timeWindow - (now - oldestRequest);
+      
+      console.warn(`⏳ Rate limit approaching. Waiting ${waitTime}ms...`);
+      
+      await new Promise(resolve => setTimeout(resolve, waitTime + 100));
+      
+      // Recursively check again
+      return this.waitForSlot();
+    }
+    
+    // Record this request
+    this.requests.push(now);
+  }
+}
+
+const rateLimiter = new RateLimiter();
+
+/**
+ * Wrap any API call with rate limiting
+ */
+export const rateLimitedRequest = async (requestFn) => {
+  await rateLimiter.waitForSlot();
+  return requestFn();
+};
+
+// ============================================
+// ✅ RESPONSE VALIDATION HELPER
+// ============================================
+
+const validateSearchResponse = (data) => {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid API response: Expected object');
+  }
+  
+  if (!data.response || !data.response.docs) {
+    throw new Error('Invalid API response: Missing response.docs');
+  }
+  
+  return {
+    docs: data.response.docs || [],
+    numFound: data.response.numFound || 0,
+    start: data.response.start || 0
+  };
+};
 
 // ============================================
 // CORE SEARCH FUNCTIONS
@@ -24,43 +221,63 @@ const METADATA_ENDPOINT = `${ARCHIVE_BASE}/metadata`;
 
 /**
  * Search Archive.org for public domain movies
- * LEGAL NOTE: Only includes items with explicit public domain marking
+ * ✅ Enhanced with validation and error handling
  */
 export const searchPublicDomainMovies = async (query = '', page = 1, rows = 20) => {
   try {
     // ⚠️ IMPORTANT: This query filters for public domain content only
-    // licenseurl includes public domain markers
-    // mediatype:movies filters to video content
     const searchQuery = query 
-      ? `(${query}) AND mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0*)`
-      : `mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0*)`;
+      ? `(${query}) AND mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0* OR collection:prelinger OR collection:feature_films)`
+      : `mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0* OR collection:prelinger OR collection:feature_films)`;
 
     const params = {
       q: searchQuery,
-      fl: ['identifier', 'title', 'description', 'year', 'creator', 'subject', 'licenseurl', 'downloads'].join(','),
+      fl: [
+        'identifier',
+        'title',
+        'description',
+        'year',
+        'creator',
+        'subject',
+        'language',
+        'licenseurl',
+        'downloads',
+        'avg_rating',
+        'num_reviews'
+      ].join(','),
       output: 'json',
       rows: rows,
       page: page,
       sort: 'downloads desc'
     };
 
-    const response = await axios.get(SEARCH_ENDPOINT, { params });
+    const response = await rateLimitedRequest(() => 
+      archiveAPI.get(SEARCH_ENDPOINT, { params })
+    );
+    
+    const result = validateSearchResponse(response.data);
     
     // Log items with unclear rights for manual review
-    response.data.response.docs.forEach(doc => {
+    result.docs.forEach(doc => {
       if (!doc.licenseurl || (!doc.licenseurl.includes('publicdomain') && !doc.licenseurl.includes('cc0'))) {
         console.warn('⚠️ RIGHTS UNCLEAR - Manual review required:', doc.identifier);
       }
     });
 
-    return {
-      docs: response.data.response.docs,
-      numFound: response.data.response.numFound,
-      start: response.data.response.start
-    };
+    return result;
+    
   } catch (error) {
-    console.error('Archive.org API Error:', error);
-    throw error;
+    console.error('Archive.org Search Error:', error);
+    
+    if (error instanceof ArchiveAPIError) {
+      throw error;
+    }
+    
+    throw new ArchiveAPIError(
+      'Failed to search movies. Please try again.',
+      500,
+      error
+    );
   }
 };
 
@@ -70,12 +287,7 @@ export const searchPublicDomainMovies = async (query = '', page = 1, rows = 20) 
 
 /**
  * Search by category with advanced filtering
- * @param {string} categoryType - 'genre' | 'decade' | 'language' | 'year'
- * @param {string} value - Category value (e.g., 'horror', '1920s', 'english')
- * @param {number} page - Page number (1-indexed)
- * @param {number} rows - Results per page
- * @param {string} sort - Sort field with direction (e.g., 'downloads desc', 'year asc')
- * @returns {Promise<{docs: Array, numFound: number, start: number}>}
+ * ✅ Enhanced with better error messages and validation
  */
 export const searchByCategory = async (
   categoryType, 
@@ -85,32 +297,46 @@ export const searchByCategory = async (
   sort = 'downloads desc'
 ) => {
   try {
+    // Validate inputs
+    if (!categoryType || !value) {
+      throw new Error('categoryType and value are required');
+    }
+    
     // Base query with public domain filter
-    let query = 'mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0* OR collection:prelinger OR collection:moviesandfilms)';
+    let query = 'mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0* OR collection:prelinger OR collection:feature_films)';
     
     // ✅ Build category-specific queries
     switch (categoryType.toLowerCase()) {
       case 'genre':
-        // Handle multi-word genres (e.g., "film-noir" → "film noir")
-        const genreValue = value.replace(/-/g, ' ');
-        query += ` AND subject:"${genreValue}"`;
-        break;
+  // Capitalize each word
+  // Support for mixed-case, dash, underscore, and trim spaces.
+  const genreCap = value
+    .toString()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b([a-z])/g, (_, c) => c.toUpperCase())
+    .trim();
+  query += ` AND subject:"${genreCap}"`;
+  break;
         
       case 'decade':
-        // Extract start year from decade (e.g., "1920s" → 1920-1929)
         const startYear = parseInt(value.replace('s', ''));
+        if (isNaN(startYear)) {
+          throw new Error(`Invalid decade format: ${value}`);
+        }
         const endYear = startYear + 9;
         query += ` AND year:[${startYear} TO ${endYear}]`;
         break;
         
       case 'year':
-        // Exact year match
-        query += ` AND year:${value}`;
+        const yearValue = parseInt(value);
+        if (isNaN(yearValue)) {
+          throw new Error(`Invalid year format: ${value}`);
+        }
+        query += ` AND year:${yearValue}`;
         break;
         
       case 'language':
         if (value.toLowerCase() === 'silent') {
-          // Silent films (pre-1930)
           query += ' AND year:[* TO 1930]';
         } else {
           query += ` AND language:"${value}"`;
@@ -118,7 +344,7 @@ export const searchByCategory = async (
         break;
         
       default:
-        console.warn(`Unknown category type: ${categoryType}`);
+        throw new Error(`Unknown category type: ${categoryType}`);
     }
 
     const params = {
@@ -140,54 +366,48 @@ export const searchByCategory = async (
       output: 'json',
       rows: rows,
       page: page,
-      sort: sort // ✅ Format: "field direction" (e.g., "downloads desc")
+      sort: sort
     };
 
-    console.log('🔍 Category Search:', { categoryType, value, query });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Category Search:', { categoryType, value, query });
+    }
 
     const response = await rateLimitedRequest(() => 
-      axios.get(SEARCH_ENDPOINT, { params })
+      archiveAPI.get(SEARCH_ENDPOINT, { params })
     );
     
-    const results = response.data.response;
+    const result = validateSearchResponse(response.data);
     
-    console.log(`✅ Found ${results.numFound} results for ${categoryType}:${value}`);
+    console.log(`✅ Found ${result.numFound} results for ${categoryType}:${value}`);
     
-    return {
-      docs: results.docs || [],
-      numFound: results.numFound || 0,
-      start: results.start || 0
-    };
+    return result;
 
   } catch (error) {
     console.error(`Category search error (${categoryType}:${value}):`, error);
-    throw error;
+    
+    if (error instanceof ArchiveAPIError) {
+      throw error;
+    }
+    
+    throw new ArchiveAPIError(
+      `Failed to load ${categoryType} movies. Please try again.`,
+      500,
+      error
+    );
   }
 };
 
 // ============================================
-// ✅ MULTI-FILTER SEARCH FUNCTION
+// ✅ ADVANCED SEARCH FUNCTION
 // ============================================
 
-/**
- * Advanced search with multiple filters
- * @param {Object} filters - Filter object
- * @param {string} filters.genre - Genre filter
- * @param {string} filters.decade - Decade filter
- * @param {string} filters.language - Language filter
- * @param {number} filters.minYear - Minimum year
- * @param {number} filters.maxYear - Maximum year
- * @param {string} filters.searchText - Text search query
- * @param {number} page - Page number
- * @param {number} rows - Results per page
- * @param {string} sort - Sort order
- */
 export const advancedSearch = async (filters = {}, page = 1, rows = 20, sort = 'downloads desc') => {
   try {
     let queryParts = ['mediatype:movies'];
     
     // Public domain filter (always required)
-    queryParts.push('(licenseurl:*publicdomain* OR licenseurl:*cc0* OR collection:prelinger)');
+    queryParts.push('(licenseurl:*publicdomain* OR licenseurl:*cc0* OR collection:prelinger OR collection:feature_films)');
     
     // Genre filter
     if (filters.genre) {
@@ -197,7 +417,9 @@ export const advancedSearch = async (filters = {}, page = 1, rows = 20, sort = '
     // Decade filter
     if (filters.decade) {
       const startYear = parseInt(filters.decade.replace('s', ''));
-      queryParts.push(`year:[${startYear} TO ${startYear + 9}]`);
+      if (!isNaN(startYear)) {
+        queryParts.push(`year:[${startYear} TO ${startYear + 9}]`);
+      }
     }
     
     // Year range filter
@@ -218,7 +440,7 @@ export const advancedSearch = async (filters = {}, page = 1, rows = 20, sort = '
     
     // Text search
     if (filters.searchText) {
-      queryParts.push(`(title:(${filters.searchText}) OR description:(${filters.searchText}))`);
+      queryParts.push(`(title:(${filters.searchText}) OR description:(${filters.searchText}) OR creator:(${filters.searchText}))`);
     }
     
     const query = queryParts.join(' AND ');
@@ -243,55 +465,28 @@ export const advancedSearch = async (filters = {}, page = 1, rows = 20, sort = '
       sort: sort
     };
 
-    console.log('🔍 Advanced Search Query:', query);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Advanced Search Query:', query);
+    }
 
     const response = await rateLimitedRequest(() => 
-      axios.get(SEARCH_ENDPOINT, { params })
+      archiveAPI.get(SEARCH_ENDPOINT, { params })
     );
     
-    return {
-      docs: response.data.response.docs || [],
-      numFound: response.data.response.numFound || 0,
-      start: response.data.response.start || 0
-    };
+    return validateSearchResponse(response.data);
 
   } catch (error) {
     console.error('Advanced search error:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// ✅ GET AVAILABLE CATEGORIES
-// ============================================
-
-/**
- * Fetch available categories with movie counts
- * Useful for generating dynamic category pages
- */
-export const getAvailableCategories = async () => {
-  try {
-    const categories = {
-      genres: ['Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Western', 'Film Noir', 'Documentary', 'Animation', 'Mystery', 'Romance'],
-      decades: ['1890s', '1900s', '1910s', '1920s', '1930s', '1940s', '1950s', '1960s', '1970s'],
-      languages: ['English', 'Silent', 'French', 'German', 'Italian', 'Spanish', 'Japanese', 'Russian']
-    };
-
-    // Fetch counts for each category (optional - can be cached)
-    const categoriesWithCounts = {
-      genres: [],
-      decades: [],
-      languages: []
-    };
-
-    // You can implement count fetching here if needed
-    // For now, return structure without counts to avoid too many API calls
-
-    return categories;
-
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    throw error;
+    
+    if (error instanceof ArchiveAPIError) {
+      throw error;
+    }
+    
+    throw new ArchiveAPIError(
+      'Advanced search failed. Please try again.',
+      500,
+      error
+    );
   }
 };
 
@@ -301,10 +496,22 @@ export const getAvailableCategories = async () => {
 
 /**
  * Fetch detailed metadata for a specific movie
+ * ✅ Enhanced with validation
  */
 export const getMovieMetadata = async (identifier) => {
   try {
-    const response = await axios.get(`${METADATA_ENDPOINT}/${identifier}`);
+    if (!identifier) {
+      throw new Error('Movie identifier is required');
+    }
+    
+    const response = await rateLimitedRequest(() => 
+      archiveAPI.get(`${METADATA_ENDPOINT}/${identifier}`)
+    );
+    
+    if (!response.data || !response.data.metadata) {
+      throw new Error('Invalid metadata response');
+    }
+    
     const metadata = response.data.metadata;
     
     // ⚠️ HUMAN REVIEW REQUIRED: Verify license before displaying
@@ -320,36 +527,64 @@ export const getMovieMetadata = async (identifier) => {
       _rightsVerified: isPublicDomain,
       _archiveUrl: `https://archive.org/details/${identifier}`
     };
+    
   } catch (error) {
     console.error(`Metadata fetch error for ${identifier}:`, error);
-    throw error;
+    
+    if (error instanceof ArchiveAPIError) {
+      throw error;
+    }
+    
+    throw new ArchiveAPIError(
+      `Failed to load movie details for ${identifier}`,
+      500,
+      error
+    );
   }
 };
 
 /**
  * Get streaming/download URLs for a movie
- * POLICY: Only returns links if rights are clear
+ * ✅ Enhanced file filtering
  */
 export const getMovieFiles = async (identifier) => {
   try {
-    const response = await axios.get(`${METADATA_ENDPOINT}/${identifier}/files`);
-    const files = response.data.result || [];
+    if (!identifier) {
+      throw new Error('Movie identifier is required');
+    }
     
-    // Filter for video files
-    const videoFiles = files.filter(file => 
-      file.format === 'MPEG4' || 
-      file.format === 'h.264' || 
-      file.format === 'Ogg Video' ||
-      file.name?.endsWith('.mp4') ||
-      file.name?.endsWith('.ogv')
+    const response = await rateLimitedRequest(() => 
+      archiveAPI.get(`${METADATA_ENDPOINT}/${identifier}/files`)
     );
+    
+    const files = response.data?.result || [];
+    
+    // Filter for video files with priority order
+    const videoFormats = [
+      { format: 'h.264', priority: 1 },
+      { format: 'MPEG4', priority: 2 },
+      { format: 'Ogg Video', priority: 3 }
+    ];
+    
+    const videoFiles = files
+      .filter(file => 
+        videoFormats.some(vf => vf.format === file.format) ||
+        file.name?.match(/\.(mp4|ogv|webm)$/i)
+      )
+      .map(file => {
+        const formatInfo = videoFormats.find(vf => vf.format === file.format);
+        return {
+          name: file.name,
+          size: file.size,
+          format: file.format,
+          url: `https://archive.org/download/${identifier}/${file.name}`,
+          priority: formatInfo?.priority || 99
+        };
+      })
+      .sort((a, b) => a.priority - b.priority);
 
-    return videoFiles.map(file => ({
-      name: file.name,
-      size: file.size,
-      format: file.format,
-      url: `https://archive.org/download/${identifier}/${file.name}`
-    }));
+    return videoFiles;
+    
   } catch (error) {
     console.error('File fetch error:', error);
     return [];
@@ -368,7 +603,7 @@ export const getFeaturedMovies = async (limit = 12) => {
 };
 
 /**
- * Get movies by collection (e.g., Prelinger Archives)
+ * Get movies by collection
  */
 export const getMoviesByCollection = async (collection = 'prelinger', page = 1, rows = 20) => {
   try {
@@ -384,40 +619,49 @@ export const getMoviesByCollection = async (collection = 'prelinger', page = 1, 
     };
 
     const response = await rateLimitedRequest(() => 
-      axios.get(SEARCH_ENDPOINT, { params })
+      archiveAPI.get(SEARCH_ENDPOINT, { params })
     );
     
-    return {
-      docs: response.data.response.docs || [],
-      numFound: response.data.response.numFound || 0,
-      start: response.data.response.start || 0
-    };
+    return validateSearchResponse(response.data);
 
   } catch (error) {
     console.error(`Collection fetch error (${collection}):`, error);
-    throw error;
+    
+    if (error instanceof ArchiveAPIError) {
+      throw error;
+    }
+    
+    throw new ArchiveAPIError(
+      `Failed to load ${collection} collection`,
+      500,
+      error
+    );
   }
 };
 
 // ============================================
-// ✅ RELATED MOVIES FUNCTION
+// RELATED MOVIES FUNCTION
 // ============================================
 
 /**
  * Get related movies based on genre/subject
+ * ✅ Enhanced with better subject matching
  */
 export const getRelatedMovies = async (identifier, limit = 6) => {
   try {
-    // First get the movie's metadata to extract subjects
     const metadata = await getMovieMetadata(identifier);
-    const subjects = metadata.subject || [];
+    const subjects = Array.isArray(metadata.subject) ? metadata.subject : [metadata.subject].filter(Boolean);
     
     if (subjects.length === 0) {
       return { docs: [], numFound: 0 };
     }
 
-    // Search for movies with similar subjects
-    const subjectQuery = subjects.slice(0, 3).map(s => `subject:"${s}"`).join(' OR ');
+    // Use top 3 subjects for better relevance
+    const subjectQuery = subjects
+      .slice(0, 3)
+      .map(s => `subject:"${s}"`)
+      .join(' OR ');
+      
     const query = `(${subjectQuery}) AND mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*cc0*) AND NOT identifier:${identifier}`;
     
     const params = {
@@ -430,38 +674,15 @@ export const getRelatedMovies = async (identifier, limit = 6) => {
     };
 
     const response = await rateLimitedRequest(() => 
-      axios.get(SEARCH_ENDPOINT, { params })
+      archiveAPI.get(SEARCH_ENDPOINT, { params })
     );
     
-    return {
-      docs: response.data.response.docs || [],
-      numFound: response.data.response.numFound || 0
-    };
+    return validateSearchResponse(response.data);
 
   } catch (error) {
     console.error('Related movies fetch error:', error);
     return { docs: [], numFound: 0 };
   }
-};
-
-// ============================================
-// RATE LIMITING
-// ============================================
-
-// Rate limiting helper
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 200; // 200ms between requests
-
-export const rateLimitedRequest = async (requestFn) => {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
-  }
-  
-  lastRequestTime = Date.now();
-  return requestFn();
 };
 
 // ============================================
@@ -472,12 +693,7 @@ export const rateLimitedRequest = async (requestFn) => {
  * Generate thumbnail URL for a movie
  */
 export const getThumbnailUrl = (identifier, size = 'default') => {
-  const sizeMap = {
-    small: '__ia_thumb.jpg',
-    default: '__ia_thumb.jpg',
-    large: '__ia_thumb.jpg'
-  };
-  
+  if (!identifier) return '/placeholder-movie.jpg';
   return `https://archive.org/services/img/${identifier}`;
 };
 
@@ -485,6 +701,7 @@ export const getThumbnailUrl = (identifier, size = 'default') => {
  * Generate embed URL for video player
  */
 export const getEmbedUrl = (identifier) => {
+  if (!identifier) return '';
   return `https://archive.org/embed/${identifier}`;
 };
 
@@ -492,10 +709,11 @@ export const getEmbedUrl = (identifier) => {
  * Format runtime from seconds to readable format
  */
 export const formatRuntime = (seconds) => {
-  if (!seconds) return 'Unknown';
+  if (!seconds || isNaN(seconds)) return 'Unknown';
   
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
+  const totalMinutes = Math.floor(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
@@ -509,7 +727,7 @@ export const formatRuntime = (seconds) => {
  */
 export const validatePublicDomain = (metadata) => {
   const licenseUrl = metadata.licenseurl || '';
-  const collection = metadata.collection || [];
+  const collection = Array.isArray(metadata.collection) ? metadata.collection : [metadata.collection].filter(Boolean);
   
   // Check license URL
   const hasPublicDomainLicense = 
@@ -518,9 +736,9 @@ export const validatePublicDomain = (metadata) => {
     licenseUrl.includes('creativecommons.org/publicdomain');
   
   // Check trusted collections
-  const trustedCollections = ['prelinger', 'moviesandfilms', 'opensource_movies'];
+  const trustedCollections = ['prelinger', 'feature_films', 'opensource_movies', 'moviesandfilms'];
   const inTrustedCollection = trustedCollections.some(tc => 
-    collection.includes(tc)
+    collection.some(c => c.toLowerCase().includes(tc.toLowerCase()))
   );
   
   return {
@@ -532,14 +750,13 @@ export const validatePublicDomain = (metadata) => {
 };
 
 // ============================================
-// EXPORT ALL FUNCTIONS
+// ✅ EXPORT ALL FUNCTIONS
 // ============================================
 
 export default {
   searchPublicDomainMovies,
   searchByCategory,
   advancedSearch,
-  getAvailableCategories,
   getMovieMetadata,
   getMovieFiles,
   getFeaturedMovies,
@@ -549,5 +766,8 @@ export default {
   getThumbnailUrl,
   getEmbedUrl,
   formatRuntime,
-  validatePublicDomain
+  validatePublicDomain,
+  // Export error classes for custom error handling
+  ArchiveAPIError,
+  RateLimitError
 };

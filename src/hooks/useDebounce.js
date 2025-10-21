@@ -2,22 +2,20 @@ import { useState, useEffect } from 'react';
 
 /**
  * Custom hook for debouncing values
- * Performance optimization ke liye — API calls reduce karta hai
- * 
- * @param {any} value - Jo value debounce karni hai
+ * @param {any} value - Value to debounce
  * @param {number} delay - Delay in milliseconds (default: 500ms)
- * @returns {any} Debounced value
+ * @returns {any} - Debounced value
  */
 export function useDebounce(value, delay = 500) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
-    // Timer set karo
+    // Set timeout to update debounced value after delay
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
 
-    // Cleanup function — previous timer cancel kare
+    // Cleanup function - cancel timeout if value changes before delay
     return () => {
       clearTimeout(handler);
     };

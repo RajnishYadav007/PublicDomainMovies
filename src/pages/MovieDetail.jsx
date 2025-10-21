@@ -2,55 +2,73 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 import RightsWarning from '../components/RightsWarning';
+import MovieCard from '../components/MovieCard';
 import AdBanner from '../components/AdBanner';
 import { getMovieMetadata, getMovieFiles, searchPublicDomainMovies } from '../utils/archiveAPI';
 import { generateMovieSchema, generateBreadcrumbSchema } from '../utils/schemaGenerator';
-import { parseMovieSlug } from '../utils/slugify';
 
-/**
- * Movie detail page with streaming embed, metadata, and download links
- * SEO-optimized with full structured data
- */
 export default function MovieDetail() {
   const { slug } = useParams();
   const [movie, setMovie] = useState(null);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [relatedMovies, setRelatedMovies] = useState([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setLoading(true);
+    setError('');
+    setMovie(null);
+    setFiles([]);
+    setRelatedMovies([]);
     loadMovieData();
+    // eslint-disable-next-line
   }, [slug]);
 
   const loadMovieData = async () => {
     try {
-      const { titleSlug, year } = parseMovieSlug(slug);
-      
-      // Search to find identifier
-      const searchQuery = year ? `${titleSlug} ${year}` : titleSlug;
-      const results = await searchPublicDomainMovies(searchQuery, 1, 1);
-      
-      if (results.docs.length === 0) {
-        throw new Error('Movie not found');
+      // Archive.org slug IS the identifier
+      const identifier = slug.trim();
+      let metadata = null, movieFiles = [];
+
+      // === DEBUG LOG START ===
+      console.log('DETAIL: Trying identifier:', identifier);
+
+      try {
+        metadata = await getMovieMetadata(identifier);
+        movieFiles = await getMovieFiles(identifier);
+        console.log('ARCHIVE METADATA:', metadata);
+      } catch (err) {
+        setError(`No details found for identifier: ${identifier}`);
+        setLoading(false);
+        return;
       }
 
-      const identifier = results.docs[0].identifier;
-      const [metadata, movieFiles] = await Promise.all([
-        getMovieMetadata(identifier),
-        getMovieFiles(identifier)
-      ]);
+      // Defensive/null check
+      if (!metadata || typeof metadata !== 'object' || !metadata.title) {
+        setError('Archive.org returned incomplete metadata.');
+        setLoading(false);
+        return;
+      }
 
       setMovie({ ...metadata, identifier });
       setFiles(movieFiles);
 
-      // Load related movies
+      // Related movies (safe checking)
       if (metadata.subject) {
-        const genre = Array.isArray(metadata.subject) ? metadata.subject[0] : metadata.subject;
-        const related = await searchPublicDomainMovies(genre, 1, 4);
-        setRelatedMovies(related.docs.filter(m => m.identifier !== identifier));
+        const relatedGenre = Array.isArray(metadata.subject)
+          ? metadata.subject[0]
+          : metadata.subject;
+        try {
+          const related = await searchPublicDomainMovies(relatedGenre, 1, 4);
+          setRelatedMovies(related.docs.filter(m => m.identifier !== identifier));
+        } catch (relErr) {
+          // Just log, don't interrupt page
+          console.warn('Failed to load related movies:', relErr);
+        }
       }
-    } catch (error) {
-      console.error('Failed to load movie:', error);
+    } catch (globalErr) {
+      setError('Failed to load movie details.');
     } finally {
       setLoading(false);
     }
@@ -60,8 +78,16 @@ export default function MovieDetail() {
     return <div className="container mx-auto px-4 py-8">Loading...</div>;
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-red-500">
+        {error}
+      </div>
+    );
+  }
+
   if (!movie) {
-    return <div className="container mx-auto px-4 py-8">Movie not found</div>;
+    return <div className="container mx-auto px-4 py-8">Movie not found.</div>;
   }
 
   const movieSchema = generateMovieSchema(movie);
@@ -70,11 +96,9 @@ export default function MovieDetail() {
     { name: 'Movies', url: `${import.meta.env.VITE_SITE_URL}/search` },
     { name: movie.title, url: `${import.meta.env.VITE_SITE_URL}/movie/${slug}` }
   ]);
-
-  const hasPublicDomainLicense = movie.licenseurl && 
-    (movie.licenseurl.includes('publicdomain') || movie.licenseurl.includes('cc0'));
-
-  const pageTitle = movie.year 
+  const hasPublicDomainLicense =
+    movie.licenseurl && (movie.licenseurl.includes('publicdomain') || movie.licenseurl.includes('cc0'));
+  const pageTitle = movie.year
     ? `${movie.title} (${movie.year}) - Watch Free Classic Movie Online`
     : `${movie.title} - Watch Free Classic Movie Online`;
 
@@ -91,9 +115,7 @@ export default function MovieDetail() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Rights Warning */}
-        {!hasPublicDomainLicense && (
-          <RightsWarning identifier={movie.identifier} />
-        )}
+        {!hasPublicDomainLicense && <RightsWarning identifier={movie.identifier} />}
 
         {/* Movie Header */}
         <div className="mb-8">
@@ -107,14 +129,12 @@ export default function MovieDetail() {
           )}
         </div>
 
-        {/* Top Ad */}
         <AdBanner slot="movie-top" format="horizontal" />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2">
             {/* Video Embed */}
-            {hasPublicDomainLicense && (
+            {hasPublicDomainLicense ? (
               <div className="mb-6">
                 <div className="relative pt-[56.25%] bg-black rounded-lg overflow-hidden">
                   <iframe
@@ -122,13 +142,17 @@ export default function MovieDetail() {
                     className="absolute top-0 left-0 w-full h-full"
                     frameBorder="0"
                     allowFullScreen
+                    allow="autoplay; fullscreen"
                     title={`Watch ${movie.title}`}
                   />
                 </div>
               </div>
+            ) : (
+              <div className="mb-6 text-center text-red-600 font-semibold">
+                This movie's rights status is unclear. Please verify on Archive.org.
+              </div>
             )}
 
-            {/* Description */}
             {movie.description && (
               <section className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
@@ -153,6 +177,7 @@ export default function MovieDetail() {
                         href={file.url}
                         className="text-blue-600 hover:underline flex items-center gap-2"
                         download
+                        rel="noopener noreferrer"
                       >
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -168,12 +193,11 @@ export default function MovieDetail() {
 
           {/* Sidebar */}
           <aside>
-            {/* Movie Info */}
             <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
                 Movie Information
               </h3>
-              
+
               {movie.creator && (
                 <div className="mb-3">
                   <p className="text-gray-600 dark:text-gray-400 text-sm">Director</p>
@@ -235,7 +259,6 @@ export default function MovieDetail() {
               </div>
             </div>
 
-            {/* Sidebar Ad */}
             <AdBanner slot="sidebar" format="vertical" responsive={false} />
           </aside>
         </div>
@@ -247,14 +270,13 @@ export default function MovieDetail() {
               Related Movies
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {relatedMovies.map(movie => (
-                <MovieCard key={movie.identifier} movie={movie} />
+              {relatedMovies.map(m => (
+                <MovieCard key={m.identifier} movie={m} />
               ))}
             </div>
           </section>
         )}
 
-        {/* Bottom Ad */}
         <AdBanner slot="movie-bottom" format="horizontal" className="mt-8" />
       </div>
     </>

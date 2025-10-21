@@ -5,15 +5,17 @@ import { searchPublicDomainMovies } from '../utils/archiveAPI';
 
 /**
  * Advanced SearchBar with Autocomplete
- * Features:
- * - Debounced search (performance optimization)
- * - Autocomplete suggestions
- * - Keyboard navigation (Arrow keys + Enter)
- * - Recent searches (localStorage)
- * - Loading states
- * - Accessibility (ARIA labels)
+ * ✅ Features:
+ * - Debounced search (400ms delay for performance)
+ * - Autocomplete suggestions with thumbnails
+ * - Keyboard navigation (Arrow keys, Enter, Escape)
+ * - Recent searches (localStorage with 5 max)
+ * - Loading states with spinner
+ * - Accessibility (ARIA labels, roles)
+ * - Click outside to close
+ * - Clear button
  */
-export default function SearchBar({ autoFocus = false }) {
+export default function SearchBar({ autoFocus = false, placeholder }) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
@@ -25,14 +27,30 @@ export default function SearchBar({ autoFocus = false }) {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
   
-  // Debounced query — 400ms delay ke baad fire hoga
+  // Debounced query - 400ms delay ke baad fire hoga
   const debouncedQuery = useDebounce(query, 400);
+
+  // Default placeholder text
+  const defaultPlaceholder = placeholder || 'Search classic movies... (Dracula, Chaplin, Nosferatu)';
+
+  // ============================================
+  // EFFECTS
+  // ============================================
 
   // Component mount hone pe recent searches load karo
   useEffect(() => {
-    const saved = localStorage.getItem('recentSearches');
-    if (saved) {
-      setRecentSearches(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('recentSearches');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Validate that it's an array
+        if (Array.isArray(parsed)) {
+          setRecentSearches(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load recent searches:', error);
+      localStorage.removeItem('recentSearches');
     }
   }, []);
 
@@ -42,6 +60,9 @@ export default function SearchBar({ autoFocus = false }) {
       fetchSuggestions(debouncedQuery);
     } else {
       setSuggestions([]);
+      if (debouncedQuery.trim().length === 0) {
+        setShowSuggestions(false);
+      }
     }
   }, [debouncedQuery]);
 
@@ -52,6 +73,28 @@ export default function SearchBar({ autoFocus = false }) {
     }
   }, [autoFocus]);
 
+  // Handle click outside - dropdown close karo
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target)
+      ) {
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // ============================================
+  // HANDLERS
+  // ============================================
+
   /**
    * Fetch autocomplete suggestions from Archive.org
    */
@@ -59,7 +102,7 @@ export default function SearchBar({ autoFocus = false }) {
     setLoading(true);
     try {
       const results = await searchPublicDomainMovies(searchQuery, 1, 5);
-      setSuggestions(results.docs);
+      setSuggestions(results.docs || []);
       setShowSuggestions(true);
     } catch (error) {
       console.error('Autocomplete fetch error:', error);
@@ -85,20 +128,54 @@ export default function SearchBar({ autoFocus = false }) {
     // Reset states
     setShowSuggestions(false);
     setQuery('');
+    setSelectedIndex(-1);
     inputRef.current?.blur();
   };
 
   /**
    * Save search to recent searches (localStorage)
+   * Maximum 5 recent searches maintain karo
    */
   const saveRecentSearch = (searchQuery) => {
-    const updated = [
-      searchQuery,
-      ...recentSearches.filter(s => s !== searchQuery)
-    ].slice(0, 5); // Maximum 5 recent searches
+    try {
+      const updated = [
+        searchQuery,
+        ...recentSearches.filter(s => s !== searchQuery)
+      ].slice(0, 5); // Maximum 5 recent searches
 
-    setRecentSearches(updated);
-    localStorage.setItem('recentSearches', JSON.stringify(updated));
+      setRecentSearches(updated);
+      localStorage.setItem('recentSearches', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to save recent search:', error);
+    }
+  };
+
+  /**
+   * Clear a specific recent search
+   */
+  const clearRecentSearch = (searchToRemove, event) => {
+    event.stopPropagation(); // Prevent triggering the search
+    
+    try {
+      const updated = recentSearches.filter(s => s !== searchToRemove);
+      setRecentSearches(updated);
+      localStorage.setItem('recentSearches', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to clear recent search:', error);
+    }
+  };
+
+  /**
+   * Clear all recent searches
+   */
+  const clearAllRecentSearches = () => {
+    try {
+      setRecentSearches([]);
+      localStorage.removeItem('recentSearches');
+      setShowSuggestions(false);
+    } catch (error) {
+      console.error('Failed to clear recent searches:', error);
+    }
   };
 
   /**
@@ -137,6 +214,7 @@ export default function SearchBar({ autoFocus = false }) {
       case 'Escape':
         setShowSuggestions(false);
         setSelectedIndex(-1);
+        inputRef.current?.blur();
         break;
 
       case 'Enter':
@@ -144,6 +222,9 @@ export default function SearchBar({ autoFocus = false }) {
           e.preventDefault();
           handleSearch(suggestions[selectedIndex].title);
         }
+        break;
+
+      default:
         break;
     }
   };
@@ -162,40 +243,44 @@ export default function SearchBar({ autoFocus = false }) {
     setQuery('');
     setSuggestions([]);
     setShowSuggestions(false);
+    setSelectedIndex(-1);
     inputRef.current?.focus();
   };
 
   /**
-   * Handle input focus — recent searches dikhao agar query empty hai
+   * Handle input focus - recent searches dikhao agar query empty hai
    */
   const handleFocus = () => {
     if (!query && recentSearches.length > 0) {
+      setShowSuggestions(true);
+    } else if (query.trim().length >= 2) {
       setShowSuggestions(true);
     }
   };
 
   /**
-   * Handle click outside — dropdown close karo
+   * Handle input change
    */
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(event.target) &&
-        inputRef.current &&
-        !inputRef.current.contains(event.target)
-      ) {
-        setShowSuggestions(false);
-      }
-    };
+  const handleInputChange = (e) => {
+    const newValue = e.target.value;
+    setQuery(newValue);
+    
+    // Reset selected index when typing
+    setSelectedIndex(-1);
+    
+    // Show suggestions if query is long enough
+    if (newValue.trim().length >= 2) {
+      setShowSuggestions(true);
+    }
+  };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div className="relative w-full max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} role="search">
         <div className="relative flex items-center">
           {/* Search Icon */}
           <div className="absolute left-4 text-gray-400 pointer-events-none">
@@ -218,31 +303,38 @@ export default function SearchBar({ autoFocus = false }) {
           {/* Input Field */}
           <input
             ref={inputRef}
-            type="text"
+            type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
-            placeholder="Search classic movies... (Dracula, Chaplin, Nosferatu)"
+            placeholder={defaultPlaceholder}
             className="w-full pl-12 pr-24 py-3 border-2 border-gray-300 rounded-lg 
                        focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200
                        dark:bg-gray-800 dark:border-gray-600 dark:text-white
+                       dark:placeholder-gray-400
                        transition-all"
             aria-label="Search movies"
             aria-autocomplete="list"
             aria-controls="search-suggestions"
             aria-expanded={showSuggestions}
+            aria-activedescendant={
+              selectedIndex >= 0 ? `suggestion-${selectedIndex}` : undefined
+            }
             autoComplete="off"
+            spellCheck="false"
           />
 
-          {/* Clear Button */}
-          {query && (
+          {/* Clear Button (only show when there's text) */}
+          {query && !loading && (
             <button
               type="button"
               onClick={handleClear}
-              className="absolute right-24 text-gray-400 hover:text-gray-600 
-                         dark:hover:text-gray-300 transition-colors"
+              className="absolute right-20 text-gray-400 hover:text-gray-600 
+                         dark:hover:text-gray-300 transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-blue-400 rounded-full p-1"
               aria-label="Clear search"
+              tabIndex={-1}
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path 
@@ -256,7 +348,7 @@ export default function SearchBar({ autoFocus = false }) {
 
           {/* Loading Spinner */}
           {loading && (
-            <div className="absolute right-24 text-blue-500">
+            <div className="absolute right-20 text-blue-500" aria-label="Loading suggestions">
               <svg 
                 className="animate-spin h-5 w-5" 
                 fill="none" 
@@ -284,7 +376,8 @@ export default function SearchBar({ autoFocus = false }) {
             type="submit"
             className="absolute right-2 bg-blue-600 hover:bg-blue-700 
                        text-white px-6 py-2 rounded-md font-semibold
-                       transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                       transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                       focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
             disabled={!query.trim() || loading}
             aria-label="Submit search"
           >
@@ -302,35 +395,66 @@ export default function SearchBar({ autoFocus = false }) {
                      border-2 border-gray-200 dark:border-gray-700 
                      rounded-lg shadow-xl max-h-96 overflow-y-auto"
           role="listbox"
+          aria-label="Search suggestions"
         >
           {/* Recent Searches Section */}
           {!query && recentSearches.length > 0 && (
             <div className="border-b border-gray-200 dark:border-gray-700">
-              <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-                Recent Searches
+              <div className="px-4 py-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                  Recent Searches
+                </span>
+                <button
+                  onClick={clearAllRecentSearches}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline
+                           focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-2 py-1"
+                  aria-label="Clear all recent searches"
+                >
+                  Clear All
+                </button>
               </div>
               {recentSearches.map((search, index) => (
                 <button
                   key={`recent-${index}`}
                   onClick={() => handleSearch(search)}
                   className="w-full px-4 py-3 text-left hover:bg-gray-100 
-                             dark:hover:bg-gray-700 flex items-center gap-3
-                             transition-colors"
+                             dark:hover:bg-gray-700 flex items-center justify-between gap-3
+                             transition-colors group
+                             focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-700"
                   role="option"
                   aria-selected={false}
                 >
-                  <svg 
-                    className="w-4 h-4 text-gray-400" 
-                    fill="currentColor" 
-                    viewBox="0 0 20 20"
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <svg 
+                      className="w-4 h-4 text-gray-400 flex-shrink-0" 
+                      fill="currentColor" 
+                      viewBox="0 0 20 20"
+                    >
+                      <path 
+                        fillRule="evenodd" 
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" 
+                        clipRule="evenodd" 
+                      />
+                    </svg>
+                    <span className="text-gray-700 dark:text-gray-300 truncate">{search}</span>
+                  </div>
+                  
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => clearRecentSearch(search, e)}
+                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500
+                             transition-opacity p-1 rounded focus:outline-none focus:ring-1 focus:ring-red-400"
+                    aria-label={`Remove ${search} from recent searches`}
+                    tabIndex={-1}
                   >
-                    <path 
-                      fillRule="evenodd" 
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" 
-                      clipRule="evenodd" 
-                    />
-                  </svg>
-                  <span className="text-gray-700 dark:text-gray-300">{search}</span>
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path 
+                        fillRule="evenodd" 
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" 
+                        clipRule="evenodd" 
+                      />
+                    </svg>
+                  </button>
                 </button>
               ))}
             </div>
@@ -345,11 +469,13 @@ export default function SearchBar({ autoFocus = false }) {
               {suggestions.map((movie, index) => (
                 <button
                   key={movie.identifier}
+                  id={`suggestion-${index}`}
                   onClick={() => handleSuggestionClick(movie)}
                   className={`w-full px-4 py-3 text-left flex items-center gap-4
                              transition-colors
+                             focus:outline-none
                              ${selectedIndex === index 
-                               ? 'bg-blue-50 dark:bg-blue-900' 
+                               ? 'bg-blue-50 dark:bg-blue-900/50' 
                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                              }`}
                   role="option"
@@ -358,9 +484,12 @@ export default function SearchBar({ autoFocus = false }) {
                   {/* Movie Thumbnail */}
                   <img
                     src={`https://archive.org/services/img/${movie.identifier}`}
-                    alt={movie.title}
-                    className="w-12 h-16 object-cover rounded"
+                    alt={`${movie.title} poster`}
+                    className="w-12 h-16 object-cover rounded flex-shrink-0"
                     loading="lazy"
+                    onError={(e) => {
+                      e.target.src = '/placeholder-movie.jpg'; // Fallback image
+                    }}
                   />
                   
                   {/* Movie Info */}
@@ -368,16 +497,26 @@ export default function SearchBar({ autoFocus = false }) {
                     <p className="font-semibold text-gray-900 dark:text-white truncate">
                       {movie.title}
                     </p>
-                    {movie.year && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {movie.year}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {movie.year && (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {movie.year}
+                        </span>
+                      )}
+                      {movie.creator && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            {movie.creator}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {/* Arrow Icon */}
                   <svg 
-                    className="w-5 h-5 text-gray-400" 
+                    className="w-5 h-5 text-gray-400 flex-shrink-0" 
                     fill="currentColor" 
                     viewBox="0 0 20 20"
                   >
@@ -393,10 +532,10 @@ export default function SearchBar({ autoFocus = false }) {
           )}
 
           {/* No Results */}
-          {query && !loading && suggestions.length === 0 && (
+          {query && !loading && suggestions.length === 0 && debouncedQuery === query && (
             <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
               <svg 
-                className="w-12 h-12 mx-auto mb-3 text-gray-300" 
+                className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" 
                 fill="currentColor" 
                 viewBox="0 0 20 20"
               >
@@ -406,8 +545,12 @@ export default function SearchBar({ autoFocus = false }) {
                   clipRule="evenodd" 
                 />
               </svg>
-              <p className="font-semibold mb-1">No movies found</p>
-              <p className="text-sm">Try a different search term</p>
+              <p className="font-semibold mb-1 text-gray-700 dark:text-gray-300">
+                No movies found for "{query}"
+              </p>
+              <p className="text-sm">
+                Try a different search term or browse our <a href="/categories" className="text-blue-600 hover:underline">categories</a>
+              </p>
             </div>
           )}
         </div>

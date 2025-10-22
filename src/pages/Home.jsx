@@ -1,49 +1,71 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import MovieCard from '../components/MovieCard';
 import SearchBar from '../components/SearchBar';
 import AdBanner from '../components/AdBanner';
-import { getFeaturedMovies } from '../utils/archiveAPI';
+import Pagination from '../components/Pagination';
+import { searchByCategory } from '../utils/archiveAPI';
 
 /**
  * Homepage - Featured Movies and Search
  * ✅ TanStack Query for data fetching
  * ✅ SEO-optimized hero section
  * ✅ AdSense policy compliant ad placement
- * Keywords: "watch classic movies online", "free public domain movies"
+ * ✅ Pagination and English-language filter (20 movies per page)
+ * ✅ Browse categories section
+ * ✅ Why Choose Us section
+ * ✅ Legal disclaimer
  */
 export default function Home() {
-  
-  // ✅ TanStack Query for Featured Movies
-  const { 
-    data: featuredMovies = [], 
-    isLoading, 
+  // URL search params for pagination and sorting
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPage = parseInt(searchParams.get('page')) || 1;
+  const sortBy = searchParams.get('sort') || 'downloads desc';
+  const moviesPerPage = 20;
+
+  // Use searchByCategory for English movies with pagination
+  const {
+    data: movieData = { movies: [], totalResults: 0, totalPages: 0 },
+    isLoading,
     isError,
-    error 
+    error
   } = useQuery({
-    queryKey: ['featured-movies'],
+    queryKey: ['home-language-english', currentPage, sortBy],
     queryFn: async () => {
-      try {
-        const result = await getFeaturedMovies(12);
-        
-        // ✅ Validate response structure
-        if (!result || !Array.isArray(result.docs)) {
-          throw new Error('Invalid API response format');
-        }
-        
-        return result.docs;
-      } catch (err) {
-        console.error('Failed to load featured movies:', err);
-        throw new Error('Unable to load featured movies. Please try again later.');
-      }
+      const results = await searchByCategory(
+        'language',
+        'english',
+        currentPage,
+        moviesPerPage,
+        sortBy
+      );
+      if (!results || typeof results !== 'object') throw new Error('Invalid API response format');
+      return {
+        movies: results.docs || [],
+        totalResults: results.numFound || 0,
+        totalPages: Math.ceil((results.numFound || 0) / moviesPerPage)
+      };
     },
-    staleTime: 1000 * 60 * 15, // 15 minutes cache for homepage
-    gcTime: 1000 * 60 * 30, // 30 minutes garbage collection
+    staleTime: 1000 * 60 * 15,
+    gcTime: 1000 * 60 * 30,
     retry: 2,
-    refetchOnWindowFocus: false, // AdSense optimization
-    refetchOnMount: true, // Always fresh data on homepage
+    refetchOnWindowFocus: false,
+    refetchOnMount: true
   });
+
+  const movies = movieData.movies;
+  const totalPages = movieData.totalPages;
+  const totalResults = movieData.totalResults;
+
+  const handlePageChange = (newPage) => {
+    setSearchParams({ page: String(newPage), sort: sortBy });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSortChange = (e) => {
+    setSearchParams({ page: '1', sort: e.target.value });
+  };
 
   // Category configuration with proper routing
   const categories = [
@@ -145,7 +167,9 @@ export default function Home() {
               {/* Quick Stats */}
               <div className="grid grid-cols-3 gap-6 max-w-2xl mx-auto mt-12">
                 <div className="text-center">
-                  <div className="text-3xl md:text-4xl font-bold">5,000+</div>
+                  <div className="text-3xl md:text-4xl font-bold">
+                    {totalResults ? totalResults.toLocaleString() : '5,000+'}
+                  </div>
                   <div className="text-blue-100 text-sm md:text-base">Classic Films</div>
                 </div>
                 <div className="text-center">
@@ -168,24 +192,54 @@ export default function Home() {
             <AdBanner slot="1234567890" format="horizontal" />
           </div>
 
-          {/* ✅ Featured Movies Section */}
+          {/* ✅ Featured Movies Section with Pagination & Sorting */}
           <section className="mb-12" aria-labelledby="featured-heading">
-            <div className="flex items-center justify-between mb-6">
-              <h2 id="featured-heading" className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-                Featured Public Domain Movies
-              </h2>
-              <Link 
-                to="/categories" 
-                className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-              >
-                View All Categories →
-              </Link>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
+              <div>
+                <h2 id="featured-heading" className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+                  Featured Public Domain Movies
+                </h2>
+                {!isLoading && !isError && movieData && (
+                  <p className="text-gray-600 dark:text-gray-400 mt-2">
+                    Showing {((currentPage - 1) * 20) + 1}-{Math.min(currentPage * 20, totalResults)} of {totalResults.toLocaleString()} English movies
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-4 mt-4 lg:mt-0">
+                <Link 
+                  to="/categories" 
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap"
+                >
+                  View All Categories →
+                </Link>
+                
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    Sort by:
+                  </label>
+                  <select
+                    id="sort-select"
+                    value={sortBy}
+                    onChange={handleSortChange}
+                    disabled={isLoading}
+                    className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="downloads desc">Most Popular</option>
+                    <option value="date desc">Newest Added</option>
+                    <option value="title asc">Title (A-Z)</option>
+                    <option value="year desc">Year (Newest)</option>
+                    <option value="year asc">Year (Oldest)</option>
+                  </select>
+                </div>
+              </div>
             </div>
             
             {isLoading ? (
-              // Loading Skeleton
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {[...Array(12)].map((_, i) => (
+              // Loading Skeleton - 20 items
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {[...Array(20)].map((_, i) => (
                   <div 
                     key={i} 
                     className="animate-pulse bg-gray-200 dark:bg-gray-700 h-96 rounded-lg"
@@ -218,14 +272,27 @@ export default function Home() {
                   Retry
                 </button>
               </div>
-            ) : featuredMovies.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {featuredMovies.map((movie, index) => (
-                  <div key={movie.identifier}>
-                    <MovieCard movie={movie} />
+            ) : movies.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  {movies.map((movie) => (
+                    <div key={movie.identifier}>
+                      <MovieCard movie={movie} />
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-12">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                    />
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             ) : (
               // No Movies Available
               <div className="text-center py-16">

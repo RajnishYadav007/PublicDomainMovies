@@ -12,6 +12,7 @@ import {
 
 /**
  * Custom Hooks for Archive.org API with TanStack Query
+ * ✅ PAGINATION FIX: Page number to start offset conversion
  * ✅ Features:
  * - Automatic caching and background refetching
  * - Loading, error, and success states
@@ -23,7 +24,7 @@ import {
  */
 
 // ============================================
-// SEARCH HOOKS
+// SEARCH HOOKS - PAGINATION FIXED
 // ============================================
 
 /**
@@ -45,7 +46,9 @@ export const useSearchMovies = (query, page = 1, rows = 20, options = {}) => {
       if (!query || query.trim().length < 2) {
         return { docs: [], numFound: 0, start: 0 };
       }
-      return searchPublicDomainMovies(query, page, rows);
+      // ✅ PAGINATION FIX: Convert page to start offset
+      const start = (page - 1) * rows;
+      return searchPublicDomainMovies(query, start, rows);
     },
     staleTime: 1000 * 60 * 10, // 10 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
@@ -79,7 +82,11 @@ export const useCategoryMovies = (
 ) => {
   return useQuery({
     queryKey: ['category-movies', categoryType, categoryValue, page, rows, sort],
-    queryFn: () => searchByCategory(categoryType, categoryValue, page, rows, sort),
+    queryFn: () => {
+      // ✅ PAGINATION FIX: Convert page to start offset
+      const start = (page - 1) * rows;
+      return searchByCategory(categoryType, categoryValue, start, rows, sort);
+    },
     staleTime: 1000 * 60 * 15, // 15 minutes (categories change less frequently)
     gcTime: 1000 * 60 * 30,
     enabled: Boolean(categoryType && categoryValue),
@@ -111,7 +118,11 @@ export const useAdvancedSearch = (
 ) => {
   return useQuery({
     queryKey: ['advanced-search', filters, page, rows, sort],
-    queryFn: () => advancedSearch(filters, page, rows, sort),
+    queryFn: () => {
+      // ✅ PAGINATION FIX: Convert page to start offset
+      const start = (page - 1) * rows;
+      return advancedSearch(filters, start, rows, sort);
+    },
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 30,
     enabled: Object.keys(filters).length > 0, // Only run if filters exist
@@ -122,7 +133,7 @@ export const useAdvancedSearch = (
 };
 
 // ============================================
-// MOVIE DETAIL HOOKS
+// MOVIE DETAIL HOOKS (NO PAGINATION NEEDED)
 // ============================================
 
 /**
@@ -193,22 +204,23 @@ export const useRelatedMovies = (identifier, limit = 6, options = {}) => {
 };
 
 // ============================================
-// FEATURED & COLLECTION HOOKS
+// FEATURED & COLLECTION HOOKS - PAGINATION FIXED
 // ============================================
 
 /**
  * Hook for fetching featured/popular movies
  * 
  * @param {number} limit - Number of movies to fetch (default: 12)
+ * @param {number} page - Page number (default: 1)
  * @param {Object} options - TanStack Query options
  * 
  * @example
- * const { data: featured, isLoading } = useFeaturedMovies(12);
+ * const { data: featured, isLoading } = useFeaturedMovies(12, 1);
  */
-export const useFeaturedMovies = (limit = 12, options = {}) => {
+export const useFeaturedMovies = (limit = 12, page = 1, options = {}) => {
   return useQuery({
-    queryKey: ['featured-movies', limit],
-    queryFn: () => getFeaturedMovies(limit),
+    queryKey: ['featured-movies', limit, page],
+    queryFn: () => getFeaturedMovies(limit, page), // ✅ getFeaturedMovies already handles offset internally
     staleTime: 1000 * 60 * 15, // 15 minutes
     gcTime: 1000 * 60 * 30,
     retry: 2,
@@ -236,7 +248,11 @@ export const useCollectionMovies = (
 ) => {
   return useQuery({
     queryKey: ['collection-movies', collection, page, rows],
-    queryFn: () => getMoviesByCollection(collection, page, rows),
+    queryFn: () => {
+      // ✅ PAGINATION FIX: Convert page to start offset
+      const start = (page - 1) * rows;
+      return getMoviesByCollection(collection, start, rows);
+    },
     staleTime: 1000 * 60 * 15, // 15 minutes
     gcTime: 1000 * 60 * 30,
     enabled: Boolean(collection),

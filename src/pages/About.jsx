@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
  */
 export default function About() {
   const siteUrl = import.meta.env.VITE_SITE_URL;
-  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL;
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || 'admin@publicdomainmovie.org';
 
   const features = [
     {
@@ -85,7 +85,7 @@ export default function About() {
         canonical={`${siteUrl}/about`}
       />
 
-      <article className="bg-gray-50 dark:bg-gray-900">
+      <article className="bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4 py-12">
           
           {/* Hero Section */}
@@ -93,7 +93,7 @@ export default function About() {
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               About Archive Movies
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
               Your destination for classic public domain movies. We bring vintage cinema 
               from the golden age of film directly to your screen, completely free and legal.
             </p>
@@ -105,19 +105,19 @@ export default function About() {
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
                 Our Mission
               </h2>
-              <div className="prose dark:prose-invert max-w-none">
-                <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-4">
+              <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
+                <p className="text-lg leading-relaxed mb-4">
                   Archive Movies was created to make classic cinema accessible to everyone. 
                   We believe that cultural heritage should be free and available to all, 
                   not locked behind paywalls or forgotten in dusty archives.
                 </p>
-                <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-4">
+                <p className="text-lg leading-relaxed mb-4">
                   By partnering with <strong>Internet Archive</strong>, we provide a modern, 
                   user-friendly interface to explore thousands of public domain films. 
                   From silent era masterpieces to 1960s classics, every movie is legally 
                   free to watch and share.
                 </p>
-                <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                <p className="text-lg leading-relaxed">
                   Whether you're a film student, history enthusiast, or just love old movies, 
                   Archive Movies is your gateway to cinematic history.
                 </p>
@@ -136,7 +136,7 @@ export default function About() {
                   <p className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                     {stat.value}
                   </p>
-                  <p className="text-gray-600 dark:text-gray-400 font-medium">
+                  <p className="text-gray-700 dark:text-gray-400 font-medium">
                     {stat.label}
                   </p>
                 </div>
@@ -169,7 +169,7 @@ export default function About() {
                       {feature.title}
                     </h3>
                   </div>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                     {feature.description}
                   </p>
                 </div>
@@ -183,7 +183,7 @@ export default function About() {
               Built with Modern Technology
             </h2>
             <div className="max-w-3xl mx-auto">
-              <p className="text-gray-700 dark:text-gray-300 text-lg text-center mb-8">
+              <p className="text-gray-800 dark:text-gray-300 text-lg text-center mb-8">
                 Archive Movies is built using cutting-edge web technologies for 
                 the best possible user experience.
               </p>
@@ -233,7 +233,7 @@ export default function About() {
                   <p className="text-blue-600 dark:text-blue-400 font-semibold mb-3">
                     {member.role}
                   </p>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  <p className="text-gray-700 dark:text-gray-300 mb-4">
                     {member.description}
                   </p>
                   <a
@@ -261,13 +261,13 @@ export default function About() {
               </svg>
               Copyright & Legal Information
             </h2>
-            <div className="prose dark:prose-invert max-w-none">
-              <p className="text-gray-700 dark:text-gray-300 mb-3">
+            <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
+              <p className="mb-3">
                 <strong>We do not host any content.</strong> All movies are streamed directly 
                 from Internet Archive's servers. We only provide an interface to browse and 
                 discover public domain films.
               </p>
-              <p className="text-gray-700 dark:text-gray-300 mb-3">
+              <p className="mb-3">
                 Every effort is made to ensure all content is public domain or openly licensed. 
                 If you believe any content infringes your copyright, please see our{' '}
                 <Link to="/dmca" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
@@ -282,7 +282,7 @@ export default function About() {
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
               Get in Touch
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-lg mb-6 max-w-2xl mx-auto">
+            <p className="text-gray-700 dark:text-gray-300 text-lg mb-6 max-w-2xl mx-auto">
               Have questions, suggestions, or feedback? We'd love to hear from you!
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

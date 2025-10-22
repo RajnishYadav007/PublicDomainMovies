@@ -19,7 +19,7 @@ import { Link } from 'react-router-dom';
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const siteUrl = import.meta.env.VITE_SITE_URL || 'https://archive-movies.com';
-  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || 'contact@archive-movies.com';
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || 'admin@publicdomainmovie.org';
   const siteName = import.meta.env.VITE_SITE_NAME || 'Archive Movies';
 
   // Scroll to top handler

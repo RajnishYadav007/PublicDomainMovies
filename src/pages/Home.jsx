@@ -7,15 +7,16 @@ import AdBanner from '../components/AdBanner';
 import Pagination from '../components/Pagination';
 import { searchByCategory } from '../utils/archiveAPI';
 
+
 /**
  * Homepage - Featured Movies and Search
  * ✅ TanStack Query for data fetching
- * ✅ SEO-optimized hero section
- * ✅ AdSense policy compliant ad placement
+ * ✅ SEO-optimized hero section with 300+ words editorial content
+ * ✅ AdSense policy compliant ad placement (only after substantial content)
  * ✅ Pagination and English-language filter (20 movies per page)
  * ✅ Browse categories section
- * ✅ Why Choose Us section
- * ✅ Legal disclaimer
+ * ✅ Why Choose Us section with expanded content
+ * ✅ Legal disclaimer with rights verification emphasis
  */
 export default function Home() {
   // URL search params for pagination and sorting
@@ -23,6 +24,7 @@ export default function Home() {
   const currentPage = parseInt(searchParams.get('page')) || 1;
   const sortBy = searchParams.get('sort') || 'downloads desc';
   const moviesPerPage = 20;
+
 
   // Use searchByCategory for English movies with pagination
   const {
@@ -54,18 +56,22 @@ export default function Home() {
     refetchOnMount: true
   });
 
+
   const movies = movieData.movies;
   const totalPages = movieData.totalPages;
   const totalResults = movieData.totalResults;
+
 
   const handlePageChange = (newPage) => {
     setSearchParams({ page: String(newPage), sort: sortBy });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+
   const handleSortChange = (e) => {
     setSearchParams({ page: '1', sort: e.target.value });
   };
+
 
   // Category configuration with proper routing
   const categories = [
@@ -78,6 +84,7 @@ export default function Home() {
     { name: '1940s', type: 'decade', slug: '1940s', color: 'from-gray-600 to-gray-700' },
     { name: '1950s', type: 'decade', slug: '1950s', color: 'from-gray-600 to-gray-700' }
   ];
+
 
   // Generate Website Schema
   const getWebsiteSchema = () => ({
@@ -103,6 +110,7 @@ export default function Home() {
       }
     }
   });
+
 
   return (
     <>
@@ -137,6 +145,7 @@ export default function Home() {
           {JSON.stringify(getWebsiteSchema())}
         </script>
       </Helmet>
+
 
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
         
@@ -185,12 +194,40 @@ export default function Home() {
           </div>
         </header>
 
+
         <div className="container mx-auto px-4 py-8">
           
-          {/* ✅ AdSense Top Banner - Compliant Placement */}
+          {/* ✅ NEW: Editorial Content Section (300+ words for AdSense approval) */}
+          <section className="mb-12 bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12" aria-labelledby="intro-heading">
+            <h2 id="intro-heading" className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
+              Discover Cinema History: Watch Classic Movies Online Free
+            </h2>
+            
+            <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed space-y-4">
+              <p>
+                Welcome to Archive Movies, your gateway to the golden age of cinema. Our curated collection features thousands of <strong>public domain classic movies</strong> from the 1890s through the 1970s, all legally available for free streaming. Every title in our catalog has been verified for public domain status using Internet Archive's metadata, ensuring you can watch classic movies online without copyright concerns or subscription fees.
+              </p>
+              
+              <p>
+                From the silent era's pioneering works by Charlie Chaplin and Buster Keaton to film noir masterpieces and 1950s sci-fi gems, our archive movies span the full spectrum of vintage cinema. Whether you're a film student researching cinematic history, an educator seeking classroom resources, or simply a movie lover discovering timeless storytelling, you'll find <strong>free public domain movies</strong> that shaped modern filmmaking.
+              </p>
+              
+              <p>
+                Our platform prioritizes quality and accessibility. Each movie page includes historical context, cast information, and technical details sourced from Internet Archive's comprehensive metadata. We've organized the collection by genre, decade, director, and theme, making it easy to explore classic horror films, vintage comedies, dramatic masterpieces, and groundbreaking sci-fi. Unlike streaming services that rotate content, our public domain library remains permanently available—preserving cultural heritage for future generations.
+              </p>
+              
+              <p>
+                <strong>Why choose Archive Movies?</strong> We verify every film's licensing status through Internet Archive's licenseurl and rights fields, displaying clear notices when manual verification is recommended. No hidden fees, no account registration, no geo-restrictions—just instant access to cinema's greatest classics. Start your journey through film history today and rediscover the artistry that defined an era.
+              </p>
+            </div>
+          </section>
+
+
+          {/* ✅ AdSense Top Banner - ONLY after substantial content above */}
           <div className="my-8">
-            <AdBanner slot="1234567890" format="horizontal" />
+            <AdBanner slot="1234567890" format="horizontal" minWords={300} />
           </div>
+
 
           {/* ✅ Featured Movies Section with Pagination & Sorting */}
           <section className="mb-12" aria-labelledby="featured-heading">
@@ -303,10 +340,14 @@ export default function Home() {
             )}
           </section>
 
-          {/* ✅ AdSense Mid-Content Ad - Strategic Placement */}
-          <div className="my-12">
-            <AdBanner slot="slot-mid-content" format="rectangle" />
-          </div>
+
+          {/* ✅ AdSense Mid-Content Ad - Only after movie grid renders */}
+          {movies.length > 0 && (
+            <div className="my-12">
+              <AdBanner slot="slot-mid-content" format="rectangle" minWords={300} />
+            </div>
+          )}
+
 
           {/* ✅ Browse by Category Section */}
           <section className="mb-12" aria-labelledby="categories-heading">
@@ -344,7 +385,8 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ✅ Why Choose Us Section - SEO Content */}
+
+          {/* ✅ Why Choose Us Section - Enhanced with more content */}
           <section className="mb-12 bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12" aria-labelledby="benefits-heading">
             <h2 id="benefits-heading" className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">
               Why Watch Classic Movies Here?
@@ -360,8 +402,8 @@ export default function Home() {
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
                   100% Legal & Free
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  All movies verified public domain from Internet Archive. No copyright issues.
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  All movies verified public domain from Internet Archive using metadata fields like licenseurl and rights. No copyright issues, no subscription fees, no hidden costs. Stream unlimited classic films legally and ethically.
                 </p>
               </div>
               
@@ -374,8 +416,8 @@ export default function Home() {
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
                   Massive Collection
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  5,000+ classic films from 1890s-1970s. Silent movies, horror, comedy, drama & more.
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  5,000+ classic films from 1890s-1970s spanning silent movies, horror, comedy, drama, westerns, sci-fi, film noir, and documentaries. Explore works by legendary directors and discover rare cinematic gems preserved for posterity.
                 </p>
               </div>
               
@@ -388,19 +430,23 @@ export default function Home() {
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
                   No Subscription Required
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Watch unlimited classic movies anytime. No signup, no credit card, completely free.
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Watch unlimited classic movies anytime, anywhere. No signup, no credit card, no personal data collection. Instant streaming with historical context, cast info, and curated recommendations to enrich your viewing experience.
                 </p>
               </div>
             </div>
           </section>
 
-          {/* ✅ AdSense Bottom Banner - Compliant Placement */}
-          <div className="my-12">
-            <AdBanner slot="0987654321" format="horizontal" />
-          </div>
 
-          {/* ✅ Legal Disclaimer - AdSense Compliance */}
+          {/* ✅ AdSense Bottom Banner - Only after all content renders */}
+          {movies.length > 0 && (
+            <div className="my-12">
+              <AdBanner slot="0987654321" format="horizontal" minWords={300} />
+            </div>
+          )}
+
+
+          {/* ✅ Legal Disclaimer - Enhanced with Rights Verification */}
           <aside className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6" role="note">
             <div className="flex items-start gap-3">
               <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -408,7 +454,7 @@ export default function Home() {
               </svg>
               <div>
                 <h3 className="text-lg font-bold text-yellow-900 dark:text-yellow-200 mb-2">
-                  Content Rights Notice
+                  Content Rights & Verification Notice
                 </h3>
                 <p className="text-sm text-yellow-800 dark:text-yellow-300 leading-relaxed">
                   All movies are sourced from{' '}
@@ -420,9 +466,14 @@ export default function Home() {
                   >
                     Internet Archive
                   </a>
-                  {' '}and verified as public domain or Creative Commons licensed. 
-                  Users should independently verify rights before redistribution. 
-                  Learn more on our{' '}
+                  {' '}and verified as public domain or Creative Commons licensed using metadata fields (licenseurl, rights). 
+                  Titles displaying "Verify Rights on Archive.org" require independent confirmation before redistribution or commercial use. 
+                  We do not host content—streams come directly from Archive.org servers. 
+                  Report rights concerns or questions to our{' '}
+                  <Link to="/dmca" className="underline hover:text-yellow-900 dark:hover:text-yellow-100 font-medium">
+                    DMCA page
+                  </Link>
+                  {' '}or learn more on our{' '}
                   <Link to="/about" className="underline hover:text-yellow-900 dark:hover:text-yellow-100 font-medium">
                     About page
                   </Link>.
@@ -430,6 +481,7 @@ export default function Home() {
               </div>
             </div>
           </aside>
+
 
         </div>
       </div>

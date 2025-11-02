@@ -16,6 +16,7 @@ import DMCA from './pages/DMCA';
 import Sitemap from './pages/Sitemap';
 import SearchResults from './pages/SearchResults';
 import MovieDetail from './pages/MovieDetail';
+import FAQ from './pages/FAQ';
 
 function App() {
   return (
@@ -102,6 +103,7 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/dmca" element={<DMCA />} />
             <Route path="/sitemap" element={<Sitemap />} />
+            <Route path="/faq" element={<FAQ />} />
             
             {/* 404 Not Found */}
             <Route path="*" element={<NotFound />} />

@@ -2,15 +2,11 @@
   "name": "archive-movies",
   "version": "1.0.0",
   "type": "module",
-  "description": "Watch free public domain classic movies online from Internet Archive",
-  "author": "Archive Movies",
-  "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --mode ssr && node scripts/prerender.js && npm run generate-sitemap",
-    "preview": "vite preview --outDir dist/static",
-    "generate-sitemap": "node scripts/generateSitemap.js",
-    "prerender": "node scripts/prerender.js"
+    "build": "vite build && npm run generate-sitemap",
+    "preview": "vite preview",
+    "generate-sitemap": "node scripts/generateSitemap.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.5",

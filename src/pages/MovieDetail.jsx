@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import SEO from '../components/SEO';
-import RightsWarning from '../components/RightsWarning';
 import MovieCard from '../components/MovieCard';
 import AdBanner from '../components/AdBanner';
 import { getMovieMetadata, getMovieFiles, searchPublicDomainMovies } from '../utils/archiveAPI';
@@ -137,8 +136,6 @@ export default function MovieDetail() {
 
 
       <div className="container mx-auto px-4 py-8">
-        {/* ✅ Rights Warning - Enhanced notice for unclear licenses [web:17][web:21] */}
-        {!hasPublicDomainLicense && <RightsWarning identifier={movie.identifier} />}
 
 
         {/* Movie Header */}

@@ -1,16 +1,10 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
-export default defineConfig(({ command, mode }) => ({
-  plugins: [
-    react(),
-    // Sitemap plugin temporarily commented out
-    // Install separately: npm install -D vite-plugin-sitemap
-  ],
+export default defineConfig({
+  plugins: [react()],
   build: {
-    // Enable SSR build when mode is 'ssr' for prerendering [web:49]
-    ssr: mode === 'ssr',
-    outDir: mode === 'ssr' ? 'dist/server' : 'dist/client',
+    outDir: 'dist',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -20,4 +14,4 @@ export default defineConfig(({ command, mode }) => ({
       }
     }
   }
-}));
+})

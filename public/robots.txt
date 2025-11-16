@@ -1,7 +1,7 @@
 # Archive Movies - robots.txt
 # ✅ SEO & AdSense Crawler Rules
-# Last Updated: 2025-11-03
-# CRITICAL: Ensure Mediapartners-Google is NOT disallowed for AdSense ads to serve [web:28]
+# Last Updated: 2025-11-16
+# CRITICAL: Ensure Mediapartners-Google is NOT disallowed for AdSense ads
 
 # ==============================================================================
 # DEFAULT CRAWLING RULES (All Bots)
@@ -15,67 +15,47 @@ Disallow: /admin/
 Disallow: /api/
 Disallow: /test/
 Disallow: /private/
-Disallow: /.env*
+Disallow: /.env
 Disallow: /config/
 Disallow: /node_modules/
 
-# Block search engines from indexing low-value pages [web:36]
+# Block search engines from indexing low-value pages
 Disallow: /404
 Disallow: /error
-Disallow: /search?q=
-Disallow: /*?*page=*&sort=  # Prevent paginated duplicates with sort params
-
-# General crawl-delay for politeness
-Crawl-delay: 2
-
+Disallow: /search?
+Disallow: /*?*page=*&sort=
 
 # ==============================================================================
-# ✅ CRITICAL: Google AdSense Crawler Rules [web:28]
+# ✅ CRITICAL: Google AdSense Crawler Rules
 # IMPORTANT: Never block Mediapartners-Google or ads won't serve!
 # ==============================================================================
 
 User-agent: Mediapartners-Google
 Allow: /
-Crawl-delay: 0
-
-# Optional: Google-Extended for Gemini training (comment out to opt-out)
-User-agent: Google-Extended
-Disallow: /
-
 
 # ==============================================================================
 # SEARCH ENGINE SPECIFIC RULES (Optimized crawling)
 # ==============================================================================
 
-# Google: Fastest crawl speed, most important for ranking [web:36]
+# Google: Fastest crawl speed, most important for ranking
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 0
-Request-rate: 1000/1h
 
 # Bing: Balanced crawl speed
 User-agent: Bingbot
 Allow: /
-Crawl-delay: 1
-Request-rate: 100/1h
 
 # DuckDuckGo
 User-agent: DuckDuckBot
 Allow: /
-Crawl-delay: 1
 
 # Yandex
 User-agent: YandexBot
 Allow: /
-Crawl-delay: 2
-
 
 # ==============================================================================
-# BLOCK UNWANTED BOTS (Scrapers, bad actors)
+# BLOCK UNWANTED BOTS (Scrapers, bad actors - SPECIFIC NAMES ONLY)
 # ==============================================================================
-
-User-agent: MJ12bot
-Disallow: /
 
 User-agent: AhrefsBot
 Disallow: /
@@ -83,48 +63,60 @@ Disallow: /
 User-agent: SemrushBot
 Disallow: /
 
+User-agent: MJ12bot
+Disallow: /
+
 User-agent: DotBot
 Disallow: /
 
-User-agent: MojeekBot
+User-agent: PetalBot
 Disallow: /
 
-User-agent: *Crawler*
+User-agent: Bytespider
 Disallow: /
 
-User-agent: *Spider*
+# Block AI training bots (optional - remove if you want AI to train on your content)
+User-agent: GPTBot
 Disallow: /
 
-User-agent: *Bot*
+User-agent: Google-Extended
 Disallow: /
 
+User-agent: CCBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
 
 # ==============================================================================
-# SITEMAP DECLARATION (Critical for SEO crawlability) [web:34][web:36]
+# SITEMAP DECLARATION (Critical for SEO crawlability)
 # ==============================================================================
 
-Sitemap: https://archivemovies.vercel.app/sitemap.xml
-
+Sitemap: https://publicdomainmovie.vercel.app/sitemap.xml
 
 # ==============================================================================
 # NOTES FOR DEVELOPERS
 # ==============================================================================
 
-# 1. ADSENSE REQUIREMENT: Mediapartners-Google must be allowed [web:28]
-#    If blocked, Google ads will not serve on your site - major policy issue.
-#    Review: https://support.google.com/adsense/answer/10532
+# 1. ADSENSE REQUIREMENT: Mediapartners-Google must be allowed
+#    If blocked, Google ads will not serve on your site
+#    Reference: https://support.google.com/adsense/answer/10532
 
-# 2. SEO OPTIMIZATION: Googlebot has 0 crawl-delay for fast indexing [web:36]
-#    This ensures fresh content gets indexed quickly for ranking.
+# 2. NEVER USE WILDCARD PATTERNS IN USER-AGENT NAMES
+#    User-agent: *Bot* will block ALL legitimate bots including Googlebot
+#    Always use specific bot names from official documentation
 
-# 3. SITEMAP: Declare one sitemap per URL (no wildcard support) [web:34]
-#    If you have multiple sitemaps, use sitemap index.xml instead.
+# 3. SITEMAP: Must be plain text URL, not Markdown or HTML links
+#    Format: Sitemap: https://yourdomain.com/sitemap.xml
 
-# 4. PAGINATION: Block paginated parameters to prevent duplicate content [web:36]
-#    This forces search engines to treat /browse?page=1 as one canonical.
-
-# 5. HUMAN REVIEW: Update sitemap URL if domain changes [web:34]
-#    Currently: https://archivemovies.vercel.app/sitemap.xml
-
-# 6. COMPLIANCE: Test this file with Google Search Console [web:36]
+# 4. TEST THIS FILE: Use Google Search Console robots.txt tester
 #    Tool: https://search.google.com/search-console
+
+# 5. CRAWL-DELAY: Google ignores this directive as of 2025
+#    Use Google Search Console to adjust crawl rate instead

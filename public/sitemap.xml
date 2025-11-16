@@ -1,30 +1,221 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset 
-  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
->
+<!-- Public Domain Movies Sitemap -->
+<!-- Generated: 2025-11-16 -->
+<!-- ✅ Only includes indexable, canonical URLs -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- ========================================== -->
+  <!-- MAIN PAGES (Priority: High) -->
+  <!-- ========================================== -->
+  
   <url>
-    <loc>https://your-domain.com/</loc>
+    <loc>https://publicdomainmovie.vercel.app/</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
+
   <url>
-    <loc>https://your-domain.com/browse</loc>
-  </url>
-  <url>
-    <loc>https://your-domain.com/categories</loc>
-  </url>
-  <url>
-    <loc>https://your-domain.com/about</loc>
-  </url>
-  <url>
-    <loc>https://your-domain.com/search</loc>
+    <loc>https://publicdomainmovie.vercel.app/browse</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
   </url>
 
-  <!-- Example categories -->
-  <url><loc>https://your-domain.com/category/genre/comedy</loc></url>
-  <url><loc>https://your-domain.com/category/genre/horror</loc></url>
-  <url><loc>https://your-domain.com/category/genre/drama</loc></url>
-  <url><loc>https://your-domain.com/category/decade/1940s</loc></url>
-  <url><loc>https://your-domain.com/category/language/english</loc></url>
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/categories</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
 
-  <!-- Add more categories as needed -->
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/about</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ========================================== -->
+  <!-- LEGAL & POLICY PAGES (Priority: Medium) -->
+  <!-- ========================================== -->
+  
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/privacy</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/terms</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/dmca</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- ========================================== -->
+  <!-- GENRE CATEGORIES (Priority: High) -->
+  <!-- ========================================== -->
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/comedy</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/horror</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/drama</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/film-noir</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/western</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/sci-fi</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/silent</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/adventure</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/romance</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/genre/thriller</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ========================================== -->
+  <!-- DECADE CATEGORIES (Priority: High) -->
+  <!-- ========================================== -->
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/decade/1920s</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/decade/1930s</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/decade/1940s</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/decade/1950s</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/decade/1960s</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/decade/1970s</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ========================================== -->
+  <!-- LANGUAGE CATEGORIES (Priority: Medium) -->
+  <!-- ========================================== -->
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/language/english</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/language/silent</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/language/french</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <url>
+    <loc>https://publicdomainmovie.vercel.app/category/language/german</loc>
+    <lastmod>2025-11-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- ========================================== -->
+  <!-- MOVIE PAGES (Add dynamically via script) -->
+  <!-- ✅ Generated by scripts/generateSitemap.js -->
+  <!-- ========================================== -->
+
 </urlset>

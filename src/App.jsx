@@ -3,10 +3,12 @@ import { Helmet } from 'react-helmet-async';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import RightsWarning from './components/RightsWarning';
+import ScrollToTop from './components/ScrollToTop'; // ✅ ADD THIS
+
 
 // Page Imports
 import Home from './pages/Home';
-import Browse from './pages/Browse'; // ✅ ADD THIS LINE (Line 10)
+import Browse from './pages/Browse';
 import About from './pages/About';
 import Categories from './pages/Categories';
 import CategoryPage from './pages/CategoryPage';
@@ -17,6 +19,7 @@ import Sitemap from './pages/Sitemap';
 import SearchResults from './pages/SearchResults';
 import MovieDetail from './pages/MovieDetail';
 import FAQ from './pages/FAQ';
+
 
 function App() {
   return (
@@ -41,19 +44,22 @@ function App() {
             "@context": "https://schema.org",
             "@type": "WebSite",
             "name": "Archive Movies - Public Domain Classics",
-            "url": import.meta.env.VITE_SITE_URL || "https://archive-movies.com",
+            "url": import.meta.env.VITE_SITE_URL || "https://publicdomainmovie.vercel.app",
             "description": "Watch free public domain classic movies online from Internet Archive",
             "potentialAction": {
               "@type": "SearchAction",
               "target": {
                 "@type": "EntryPoint",
-                "urlTemplate": `${import.meta.env.VITE_SITE_URL || "https://archive-movies.com"}/search?q={search_term_string}`
+                "urlTemplate": `${import.meta.env.VITE_SITE_URL || "https://publicdomainmovie.vercel.app"}/search?q={search_term_string}`
               },
               "query-input": "required name=search_term_string"
             }
           })}
         </script>
       </Helmet>
+
+      {/* ✅ ADD ScrollToTop component HERE - after Router but before content */}
+      <ScrollToTop />
 
       <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
         
@@ -79,7 +85,7 @@ function App() {
             {/* Homepage */}
             <Route path="/" element={<Home />} />
             
-            {/* ✅ ADD THIS LINE (Line 82) */}
+            {/* Browse Page */}
             <Route path="/browse" element={<Browse />} />
             
             {/* Categories Landing Page */}
@@ -115,6 +121,7 @@ function App() {
     </>
   );
 }
+
 
 function NotFound() {
   return (

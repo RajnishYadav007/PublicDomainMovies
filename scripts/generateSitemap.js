@@ -2,32 +2,36 @@
 /**
  * Sitemap Generator for Archive Movies
  * ✅ Generates SEO-optimized XML sitemap
- * ✅ CRITICAL: Only includes public-domain verified movies [web:17][web:21][web:34][web:36]
- * ✅ Prevents indexing of low-value/utility pages [web:2][web:36]
+ * ✅ CRITICAL: Only includes public-domain verified movies
+ * ✅ Prevents indexing of low-value/utility pages
  * ✅ Environment-aware domain configuration
  * ✅ Validates entries before writing
- * ✅ Priority weighting for crawl efficiency [web:34][web:36]
+ * ✅ Priority weighting for crawl efficiency
+ * ✅ Vercel deployment compatible (ES Module + error handling)
  * 
  * Run: node scripts/generateSitemap.js
  * Output: public/sitemap.xml
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+// ES Module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ============================================================================
 // CONFIGURATION (Environment-aware)
 // ============================================================================
 
-// ✅ HUMAN REVIEW: Update this to match your production domain [web:36]
+// ✅ HUMAN REVIEW: Update this to match your production domain
 const BASE_URL = process.env.VITE_SITE_URL || 'https://archivemovies.vercel.app';
 
 console.log(`📍 Generating sitemap for: ${BASE_URL}`);
 
-
 // ============================================================================
-// STATIC SITE URLS (Pages with substantial content for indexing) [web:2][web:36]
+// STATIC SITE URLS (Pages with substantial content for indexing)
 // ============================================================================
 
 const staticUrls = [
@@ -75,16 +79,15 @@ const staticUrls = [
   }
 ];
 
-// ❌ NEVER include these in sitemap (low-value/utility) [web:2][web:36]
+// ❌ NEVER include these in sitemap (low-value/utility)
 const blockedUrls = ['/404', '/search', '/error', '/not-found'];
 
-
 // ============================================================================
-// CATEGORY URLS (Genre, Decade, Language filters) [web:36]
+// CATEGORY URLS (Genre, Decade, Language filters)
 // ============================================================================
 
 const categoryUrls = [
-  // Genres [web:36]
+  // Genres
   { loc: '/category/genre/comedy', priority: 0.8 },
   { loc: '/category/genre/horror', priority: 0.8 },
   { loc: '/category/genre/drama', priority: 0.8 },
@@ -96,7 +99,7 @@ const categoryUrls = [
   { loc: '/category/genre/romance', priority: 0.7 },
   { loc: '/category/genre/thriller', priority: 0.7 },
 
-  // Decades [web:36]
+  // Decades
   { loc: '/category/decade/1920s', priority: 0.8 },
   { loc: '/category/decade/1930s', priority: 0.8 },
   { loc: '/category/decade/1940s', priority: 0.8 },
@@ -104,16 +107,15 @@ const categoryUrls = [
   { loc: '/category/decade/1960s', priority: 0.7 },
   { loc: '/category/decade/1970s', priority: 0.7 },
 
-  // Languages [web:36]
+  // Languages
   { loc: '/category/language/english', priority: 0.8 },
   { loc: '/category/language/silent', priority: 0.7 },
   { loc: '/category/language/french', priority: 0.6 },
   { loc: '/category/language/german', priority: 0.6 }
 ];
 
-
 // ============================================================================
-// ✅ LOAD & FILTER MOVIES (Only public-domain verified) [web:17][web:21][web:34]
+// ✅ LOAD & FILTER MOVIES (Only public-domain verified)
 // ============================================================================
 
 const MOVIES_PATH = path.join(__dirname, '../public/movies-list.json');
@@ -121,14 +123,20 @@ const MOVIES_PATH = path.join(__dirname, '../public/movies-list.json');
 let movies = [];
 if (fs.existsSync(MOVIES_PATH)) {
   try {
-    const rawMovies = JSON.parse(fs.readFileSync(MOVIES_PATH, 'utf-8'));
+    const rawData = fs.readFileSync(MOVIES_PATH, 'utf-8');
     
-    // ✅ CRITICAL: Filter to only verified public domain movies [web:17][web:21]
+    // Validate JSON structure
+    const rawMovies = JSON.parse(rawData);
+    if (!Array.isArray(rawMovies)) {
+      throw new Error('movies-list.json must contain an array of movies');
+    }
+    
+    // ✅ CRITICAL: Filter to only verified public domain movies
     movies = rawMovies.filter(movie => {
       // Validate required fields
       if (!movie.identifier || !movie.title) return false;
 
-      // Check public domain status using licenseurl/rights [web:17][web:21]
+      // Check public domain status using licenseurl/rights
       const licenseUrl = (movie.licenseurl || '').toLowerCase();
       const rights = (movie.rights || '').toLowerCase();
       const collection = Array.isArray(movie.collection) 
@@ -149,15 +157,26 @@ if (fs.existsSync(MOVIES_PATH)) {
     });
 
     console.log(`✅ Loaded ${movies.length} verified public-domain movies`);
+    
+    // ✅ CRITICAL: Fail build if no valid movies found
+    if (movies.length === 0) {
+      console.error('❌ FATAL: No public-domain movies found after filtering');
+      console.error('   This will result in an empty/invalid sitemap');
+      console.error('   Please run: node scripts/fetchArchiveMovies.js first');
+      process.exit(1);
+    }
   } catch (error) {
-    console.error(`❌ Error parsing movies-list.json: ${error.message}`);
-    movies = [];
+    console.error(`❌ FATAL ERROR parsing movies-list.json: ${error.message}`);
+    console.error(`   Stack: ${error.stack}`);
+    process.exit(1);
   }
 } else {
-  console.warn(`⚠️  movies-list.json not found at ${MOVIES_PATH}`);
-  console.warn('   Run: node scripts/fetchArchiveMovies.js first');
+  // ✅ Allow build to continue with static pages only for initial deployment
+  console.warn('⚠️  WARNING: movies-list.json not found at ' + MOVIES_PATH);
+  console.warn('   Generating sitemap with static pages only');
+  console.warn('   Run: node scripts/fetchArchiveMovies.js to add movie pages');
+  // Don't fail build - allow static page sitemap for first deploy
 }
-
 
 // ============================================================================
 // XML GENERATION HELPERS
@@ -176,7 +195,6 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;');
 }
 
-
 /**
  * Validate and format URL entry
  */
@@ -184,7 +202,7 @@ function createUrlEntry(loc, changefreq = 'weekly', priority = 0.7, lastmod = nu
   // Validate URL format
   if (!loc || typeof loc !== 'string') return null;
 
-  // Prevent blocked URLs from being added [web:2][web:36]
+  // Prevent blocked URLs from being added
   if (blockedUrls.some(blocked => loc.includes(blocked))) {
     console.warn(`⚠️  Blocked low-value URL: ${loc}`);
     return null;
@@ -211,7 +229,6 @@ function createUrlEntry(loc, changefreq = 'weekly', priority = 0.7, lastmod = nu
   return entry;
 }
 
-
 // ============================================================================
 // GENERATE SITEMAP
 // ============================================================================
@@ -220,13 +237,13 @@ function generateSitemap() {
   let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
   sitemap += '<!-- Archive Movies Sitemap -->\n';
   sitemap += '<!-- Generated: ' + new Date().toISOString() + ' -->\n';
-  sitemap += '<!-- CRITICAL: Only includes public-domain verified content [web:17][web:21][web:34] -->\n';
+  sitemap += '<!-- CRITICAL: Only includes public-domain verified content -->\n';
   sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n';
 
   let entryCount = 0;
   let skippedCount = 0;
 
-  // Add static URLs [web:2][web:36]
+  // Add static URLs
   console.log('📄 Adding static pages...');
   staticUrls.forEach(({ loc, changefreq, priority, description }) => {
     const entry = createUrlEntry(loc, changefreq, priority);
@@ -239,7 +256,7 @@ function generateSitemap() {
     }
   });
 
-  // Add category URLs [web:36]
+  // Add category URLs
   console.log('\n🏷️  Adding category pages...');
   categoryUrls.forEach(({ loc, priority = 0.8 }) => {
     const entry = createUrlEntry(loc, 'weekly', priority);
@@ -251,7 +268,7 @@ function generateSitemap() {
     }
   });
 
-  // Add movie detail URLs [web:17][web:21][web:34][web:36]
+  // Add movie detail URLs
   console.log(`\n🎬 Adding ${movies.length} movie detail pages...`);
   movies.forEach((movie, index) => {
     const movieLoc = `/movie/${movie.identifier}`;
@@ -273,7 +290,6 @@ function generateSitemap() {
 
   return { sitemap, entryCount, skippedCount };
 }
-
 
 // ============================================================================
 // WRITE SITEMAP TO FILE
@@ -322,15 +338,11 @@ function writeSitemap() {
   }
 }
 
-
 // ============================================================================
 // MAIN EXECUTION
 // ============================================================================
 
-if (require.main === module) {
-  const success = writeSitemap();
-  process.exit(success ? 0 : 1);
-}
+const success = writeSitemap();
+process.exit(success ? 0 : 1);
 
-
-module.exports = { generateSitemap, writeSitemap, escapeXml, createUrlEntry };
+export { generateSitemap, writeSitemap, escapeXml, createUrlEntry };

@@ -6,12 +6,13 @@ import { Helmet } from 'react-helmet-async';
  * ✅ Social media sharing (Open Graph, Twitter Cards)
  * ✅ JSON-LD structured data injection
  * ✅ AdSense-friendly meta directives
+ * ✅ Self-referencing canonical tags (SEO best practice)
  * ✅ No duplicate tags (viewport, favicons handled in index.html)
  * 
  * @component
  * @param {string} title - Page title (appended with site name)
  * @param {string} description - Meta description (155–160 chars recommended)
- * @param {string} canonical - Canonical URL (prevents duplicate content)
+ * @param {string} canonical - Canonical URL path (e.g., "/about" or full URL)
  * @param {string} ogImage - Open Graph image URL (social sharing)
  * @param {Array|Object} schemaMarkup - JSON-LD schema (Movie, BreadcrumbList, etc.)
  * @param {string} type - og:type (website, video.movie, article, etc.)
@@ -22,6 +23,7 @@ import { Helmet } from 'react-helmet-async';
  * <SEO
  *   title="Watch Example Movie"
  *   description="Stream example movie free online"
+ *   canonical="/movie/example"
  *   schemaMarkup={generateMovieSchema(movie)}
  * />
  */
@@ -35,10 +37,11 @@ export default function SEO({
   robots = 'index, follow',
   noindex = false
 }) {
+  // ✅ Get environment variables with updated defaults
   const siteUrl = import.meta.env.VITE_SITE_URL || 'https://publicdomainmovie.vercel.app';
-  const siteName = import.meta.env.VITE_SITE_NAME || 'Archive Movies - Public Domain Classics';
+  const siteName = import.meta.env.VITE_SITE_NAME || 'Public Domain Movies - Free Classic Films';
   const siteDescription = import.meta.env.VITE_SITE_DESCRIPTION || 
-    'Watch free public domain classic movies online from Internet Archive. Stream vintage cinema from 1890s-1970s.';
+    'Watch free public domain classic movies online from Internet Archive. Stream vintage films from 1890s-1970s legally without registration.';
   
   // ✅ Construct full title
   const fullTitle = title 
@@ -48,21 +51,44 @@ export default function SEO({
   // ✅ Use provided description or site default (truncate at 160 chars)
   const fullDescription = description && description.length > 0
     ? description.slice(0, 160) // Google truncates at ~160 chars
-    : siteDescription;
+    : siteDescription.slice(0, 160);
   
-  // ✅ Ensure canonical URL is absolute
-  const canonicalUrl = canonical && canonical.startsWith('http')
-    ? canonical
-    : canonical
-      ? `${siteUrl}${canonical}`
-      : siteUrl;
+  // ✅ CRITICAL FIX: Ensure canonical URL is ALWAYS absolute and self-referencing
+  const canonicalUrl = (() => {
+    // If canonical prop is provided
+    if (canonical) {
+      // If already absolute URL (starts with http:// or https://)
+      if (canonical.startsWith('http://') || canonical.startsWith('https://')) {
+        return canonical;
+      }
+      // If relative path, make it absolute with siteUrl
+      const path = canonical.startsWith('/') ? canonical : `/${canonical}`;
+      return `${siteUrl}${path}`;
+    }
+    
+    // Default: Use current page URL (self-referencing canonical - SEO best practice)
+    // This prevents duplicate content issues from query params, trailing slashes, etc.
+    if (typeof window !== 'undefined') {
+      // Remove query parameters and hash from current URL
+      const currentPath = window.location.pathname;
+      return `${siteUrl}${currentPath}`;
+    }
+    
+    // Fallback to homepage (SSR or initial render)
+    return siteUrl;
+  })();
   
-  // ✅ Fallback Open Graph image
-  const ogImageUrl = ogImage && ogImage.startsWith('http')
-    ? ogImage
-    : ogImage
-      ? `${siteUrl}${ogImage}`
-      : `${siteUrl}/og-default.jpg`;
+  // ✅ Fallback Open Graph image with absolute URL
+  const ogImageUrl = (() => {
+    if (!ogImage) {
+      return `${siteUrl}/og-default.jpg`;
+    }
+    if (ogImage.startsWith('http://') || ogImage.startsWith('https://')) {
+      return ogImage;
+    }
+    const imagePath = ogImage.startsWith('/') ? ogImage : `/${ogImage}`;
+    return `${siteUrl}${imagePath}`;
+  })();
 
   // ✅ Determine robots directive
   const robotsDirective = noindex 
@@ -72,7 +98,7 @@ export default function SEO({
   // ✅ Handle schemaMarkup array or single object
   const schemaArray = Array.isArray(schemaMarkup) 
     ? schemaMarkup 
-    : schemaMarkup 
+    : schemaMarkup && typeof schemaMarkup === 'object'
       ? [schemaMarkup] 
       : [];
 
@@ -81,6 +107,8 @@ export default function SEO({
       {/* ========== PRIMARY META TAGS ========== */}
       <title>{fullTitle}</title>
       <meta name="description" content={fullDescription} />
+      
+      {/* ✅ CRITICAL: Self-referencing canonical tag (prevents duplicate content) */}
       <link rel="canonical" href={canonicalUrl} />
       
       {/* ========== OPEN GRAPH / FACEBOOK ========== */}
@@ -101,7 +129,7 @@ export default function SEO({
       <meta name="twitter:description" content={fullDescription} />
       <meta name="twitter:image" content={ogImageUrl} />
       
-      {/* Twitter creator (optional, update if you have verified account) */}
+      {/* Twitter creator (optional - uncomment when you have a verified account) */}
       {/* <meta name="twitter:creator" content="@yourusername" /> */}
       
       {/* ========== SEARCH ENGINE DIRECTIVES ========== */}
@@ -127,8 +155,7 @@ export default function SEO({
         ))
       )}
       
-      {/* ========== Alternative schema format for edge cases ========== */}
-      {/* If schemaMarkup is a string (pre-formatted JSON), inject directly */}
+      {/* ========== Alternative schema format for pre-formatted JSON strings ========== */}
       {typeof schemaMarkup === 'string' && (
         <script 
           type="application/ld+json"
